@@ -193,10 +193,11 @@ class PipelineWorker(QThread):
                 ref_for_detection, r.test_warped, r.common_mask,
                 gaussian_blur_sigma=self._params.gaussian_blur_sigma,
                 ssim_window=self._params.ssim_window,
-                ssim_threshold=self._params.ssim_threshold,
                 min_area=self._params.min_area,
                 use_color_ssim=self._params.use_color_ssim,
                 max_detection_side=self._params.max_detection_side,
+                close_kernel_size=self._params.morph_close_kernel_size,
+                save_debug=self._params.debug_export,
             )
         else:
             bboxes, diff_mask, ssim_map = detect_differences(

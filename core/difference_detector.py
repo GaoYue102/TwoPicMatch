@@ -406,15 +406,17 @@ def detect_differences_ssim_only(
     *,
     gaussian_blur_sigma: float,
     ssim_window: int,
-    ssim_threshold: float,
     min_area: int,
     use_color_ssim: bool,
     max_detection_side: int = 0,
+    close_kernel_size: int = 5,
+    save_debug: bool = False,
 ) -> Tuple[List[Tuple[int, int, int, int]], np.ndarray, np.ndarray]:
-    """SSIM-only detection — 跳过边缘密度/融合/形态学/颜色过滤。
+    """SSIM 热力图 → Otsu 自动阈值 → 闭运算 → 连通域 → 面积过滤。
 
-    仅做: 模糊 → SSIM → 阈值 → 连通域 → min_area 过滤。
-    返回 (bboxes, mask, ssim_map)，与 detect_differences 签名兼容。
+    管线: 模糊 → SSIM → 相异性图 → Otsu阈值分割
+          → 闭运算填洞 → 连通域提取 → min_area筛噪 → 边缘框。
+    返回 (bboxes, mask, ssim_map)。
     """
     ref_gray = _gray(ref_bgr)
     test_gray = _gray(test_warped_bgr)
@@ -455,12 +457,33 @@ def detect_differences_ssim_only(
     _test_for_ssim[~common_mask] = _ref_for_ssim[~common_mask]
     ssim_map = _ssim_fn(_ref_for_ssim, _test_for_ssim, ssim_window)
 
-    # 阈值 → 二值mask
-    diff_mask = ssim_map < ssim_threshold
-    diff_mask = diff_mask & common_mask
+    # 相异性图 (0=相同, 255=完全不同)
+    dissim = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
 
-    # 连通域 + min_area
-    bboxes = _extract_bboxes(diff_mask, min_area)
+    # Otsu 自动阈值分割
+    otsu_thresh, diff_mask = cv2.threshold(
+        dissim, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    if save_debug:
+        _save_debug("05a_dissim.png", dissim)
+        _save_debug("05b_otsu_thresh.png", diff_mask)
+
+    # 限定公共区域
+    diff_mask = (diff_mask > 0) & common_mask
+
+    # 闭运算 — 填洞连接断裂区域
+    if close_kernel_size >= 1:
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (close_kernel_size, close_kernel_size))
+        diff_mask = cv2.morphologyEx(
+            diff_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+
+    if save_debug:
+        _save_debug("05c_closed.png", diff_mask)
+
+    # 连通域提取 + min_area 过滤
+    diff_mask_bool = diff_mask.astype(bool)
+    bboxes = _extract_bboxes(diff_mask_bool, min_area)
 
     # 缩放回原图
     if ds_scale != 1.0:
@@ -469,8 +492,8 @@ def detect_differences_ssim_only(
              int(b[2] / ds_scale), int(b[3] / ds_scale))
             for b in bboxes
         ]
-        diff_mask = cv2.resize(
-            diff_mask.astype(np.uint8), (_orig_w, _orig_h),
+        diff_mask_bool = cv2.resize(
+            diff_mask_bool.astype(np.uint8), (_orig_w, _orig_h),
             interpolation=cv2.INTER_NEAREST,
         ).astype(bool)
         ssim_map = cv2.resize(
@@ -478,4 +501,4 @@ def detect_differences_ssim_only(
             interpolation=cv2.INTER_LINEAR,
         )
 
-    return bboxes, diff_mask, ssim_map
+    return bboxes, diff_mask_bool, ssim_map
