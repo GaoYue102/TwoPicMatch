@@ -12,7 +12,7 @@ from core.params import DetectionParams
 from core.feature_matching import compute_feature_match, draw_matches_from_result, validate_homography
 from core.alignment import compute_alignment
 from core.normalization import normalize_illumination
-from core.difference_detector import detect_differences
+from core.difference_detector import detect_differences, detect_differences_ssim_only
 from core.debug_export import (
     save_original, save_feature_matches, save_alignment,
     save_normalized, save_final_overlay,
@@ -188,27 +188,38 @@ class PipelineWorker(QThread):
         # Stage 5 — difference detection
         self.stage_changed.emit("差异检测…")
         self.progress.emit(0.7)
-        bboxes, diff_mask, ssim_map = detect_differences(
-            ref_for_detection, r.test_warped, r.common_mask,
-            gaussian_blur_sigma=self._params.gaussian_blur_sigma,
-            ssim_window=self._params.ssim_window,
-            ssim_threshold=self._params.ssim_threshold,
-            edge_low=self._params.edge_threshold_low,
-            edge_high=self._params.edge_threshold_high,
-            edge_density_threshold=self._params.edge_density_threshold,
-            fusion_mode=self._params.fusion_mode,
-            morph_open_kernel_size=self._params.morph_open_kernel_size,
-            morph_close_kernel_size=self._params.morph_close_kernel_size,
-            min_area=self._params.min_area,
-            use_color_ssim=self._params.use_color_ssim,
-            max_detection_side=self._params.max_detection_side,
-            min_color_ratio=self._params.min_color_ratio,
-            max_bbox_image_ratio=self._params.max_bbox_image_ratio,
-            use_colorfulness_mask=self._params.use_colorfulness_mask,
-            colorfulness_block_size=self._params.colorfulness_block_size,
-            colorfulness_ratio_threshold=self._params.colorfulness_ratio_threshold,
-            save_debug=self._params.debug_export,
-        )
+        if self._params.ssim_only_mode:
+            bboxes, diff_mask, ssim_map = detect_differences_ssim_only(
+                ref_for_detection, r.test_warped, r.common_mask,
+                gaussian_blur_sigma=self._params.gaussian_blur_sigma,
+                ssim_window=self._params.ssim_window,
+                ssim_threshold=self._params.ssim_threshold,
+                min_area=self._params.min_area,
+                use_color_ssim=self._params.use_color_ssim,
+                max_detection_side=self._params.max_detection_side,
+            )
+        else:
+            bboxes, diff_mask, ssim_map = detect_differences(
+                ref_for_detection, r.test_warped, r.common_mask,
+                gaussian_blur_sigma=self._params.gaussian_blur_sigma,
+                ssim_window=self._params.ssim_window,
+                ssim_threshold=self._params.ssim_threshold,
+                edge_low=self._params.edge_threshold_low,
+                edge_high=self._params.edge_threshold_high,
+                edge_density_threshold=self._params.edge_density_threshold,
+                fusion_mode=self._params.fusion_mode,
+                morph_open_kernel_size=self._params.morph_open_kernel_size,
+                morph_close_kernel_size=self._params.morph_close_kernel_size,
+                min_area=self._params.min_area,
+                use_color_ssim=self._params.use_color_ssim,
+                max_detection_side=self._params.max_detection_side,
+                min_color_ratio=self._params.min_color_ratio,
+                max_bbox_image_ratio=self._params.max_bbox_image_ratio,
+                use_colorfulness_mask=self._params.use_colorfulness_mask,
+                colorfulness_block_size=self._params.colorfulness_block_size,
+                colorfulness_ratio_threshold=self._params.colorfulness_ratio_threshold,
+                save_debug=self._params.debug_export,
+            )
         r.bboxes = bboxes
         r.diff_mask = diff_mask
         r.ssim_map = ssim_map

@@ -397,3 +397,85 @@ def detect_differences(
         )
 
     return bboxes, closed, ssim_map
+
+
+def detect_differences_ssim_only(
+    ref_bgr: np.ndarray,
+    test_warped_bgr: np.ndarray,
+    common_mask: np.ndarray,
+    *,
+    gaussian_blur_sigma: float,
+    ssim_window: int,
+    ssim_threshold: float,
+    min_area: int,
+    use_color_ssim: bool,
+    max_detection_side: int = 0,
+) -> Tuple[List[Tuple[int, int, int, int]], np.ndarray, np.ndarray]:
+    """SSIM-only detection — 跳过边缘密度/融合/形态学/颜色过滤。
+
+    仅做: 模糊 → SSIM → 阈值 → 连通域 → min_area 过滤。
+    返回 (bboxes, mask, ssim_map)，与 detect_differences 签名兼容。
+    """
+    ref_gray = _gray(ref_bgr)
+    test_gray = _gray(test_warped_bgr)
+
+    # 缩放大图
+    ds_scale = 1.0
+    _orig_h, _orig_w = ref_bgr.shape[:2]
+    if max_detection_side > 0:
+        max_side = max(ref_bgr.shape[0], ref_bgr.shape[1])
+        if max_side > max_detection_side:
+            ds_scale = max_detection_side / max_side
+            new_w = int(ref_bgr.shape[1] * ds_scale)
+            new_h = int(ref_bgr.shape[0] * ds_scale)
+            ref_bgr = cv2.resize(ref_bgr, (new_w, new_h))
+            test_warped_bgr = cv2.resize(test_warped_bgr, (new_w, new_h))
+            common_mask = cv2.resize(
+                common_mask.astype(np.uint8), (new_w, new_h),
+                interpolation=cv2.INTER_NEAREST,
+            ).astype(bool)
+            ref_gray = _gray(ref_bgr)
+            test_gray = _gray(test_warped_bgr)
+
+    # 模糊 → SSIM
+    if use_color_ssim:
+        ref_blur_bgr, test_blur_bgr = _preprocess(
+            ref_bgr, test_warped_bgr, gaussian_blur_sigma)
+        _ref_for_ssim = ref_blur_bgr
+        _test_for_ssim = test_blur_bgr
+        _ssim_fn = _compute_ssim_map_color
+    else:
+        ref_blur, test_blur = _preprocess(ref_gray, test_gray, gaussian_blur_sigma)
+        _ref_for_ssim = ref_blur
+        _test_for_ssim = test_blur
+        _ssim_fn = _compute_ssim_map
+
+    # 填非公共区域防边缘伪影
+    _test_for_ssim = _test_for_ssim.copy()
+    _test_for_ssim[~common_mask] = _ref_for_ssim[~common_mask]
+    ssim_map = _ssim_fn(_ref_for_ssim, _test_for_ssim, ssim_window)
+
+    # 阈值 → 二值mask
+    diff_mask = ssim_map < ssim_threshold
+    diff_mask = diff_mask & common_mask
+
+    # 连通域 + min_area
+    bboxes = _extract_bboxes(diff_mask, min_area)
+
+    # 缩放回原图
+    if ds_scale != 1.0:
+        bboxes = [
+            (int(b[0] / ds_scale), int(b[1] / ds_scale),
+             int(b[2] / ds_scale), int(b[3] / ds_scale))
+            for b in bboxes
+        ]
+        diff_mask = cv2.resize(
+            diff_mask.astype(np.uint8), (_orig_w, _orig_h),
+            interpolation=cv2.INTER_NEAREST,
+        ).astype(bool)
+        ssim_map = cv2.resize(
+            ssim_map.astype(np.float32), (_orig_w, _orig_h),
+            interpolation=cv2.INTER_LINEAR,
+        )
+
+    return bboxes, diff_mask, ssim_map

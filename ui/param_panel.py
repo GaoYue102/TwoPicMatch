@@ -128,6 +128,12 @@ class ParamPanel(QDockWidget):
         grp = QGroupBox("差异检测")
         form = QFormLayout(grp)
 
+        cb_ssim_only = QCheckBox()
+        cb_ssim_only.setChecked(self._params.ssim_only_mode)
+        cb_ssim_only.toggled.connect(self._on_param_changed)
+        form.addRow("SSIM Only:", cb_ssim_only)
+        self._widgets["ssim_only_mode"] = cb_ssim_only
+
         cb_color = QCheckBox()
         cb_color.setChecked(self._params.use_color_ssim)
         cb_color.toggled.connect(self._on_param_changed)
@@ -342,7 +348,7 @@ class ParamPanel(QDockWidget):
                 setattr(self._params, key, w[1].value())
         # checkboxes
         for cb_key in ["do_histogram_match", "use_color_ssim", "use_colorfulness_mask",
-                       "show_heatmap", "debug_export"]:
+                       "show_heatmap", "ssim_only_mode", "debug_export"]:
             cb = self._widgets.get(cb_key)
             if cb:
                 setattr(self._params, cb_key, cb.isChecked())
