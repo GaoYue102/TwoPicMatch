@@ -199,6 +199,7 @@ class PipelineWorker(QThread):
                 use_color_ssim=self._params.use_color_ssim,
                 use_direct_diff=self._params.use_direct_diff,
                 max_detection_side=self._params.max_detection_side,
+                save_debug=self._params.debug_export,
             )
             r.contours = contours
             # 从轮廓派生 bboxes 用于结果列表和导出

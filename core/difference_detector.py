@@ -411,6 +411,7 @@ def detect_differences_ssim_only(
     use_color_ssim: bool,
     use_direct_diff: bool = False,
     max_detection_side: int = 0,
+    save_debug: bool = False,
 ) -> Tuple[List[np.ndarray], np.ndarray, np.ndarray]:
     """SSIM-only + Otsu auto-threshold + close + contour extraction.
 
@@ -459,6 +460,8 @@ def detect_differences_ssim_only(
 
     # SSIM 差异图 → [0, 255]
     dissim_u8 = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
+    if save_debug:
+        _save_debug("05_ssim_dissim.png", dissim_u8)
 
     if use_direct_diff:
         # 直接像素差: 对灰度图取绝对差，弥补 SSIM 在均匀区域的弱响应
@@ -468,14 +471,21 @@ def detect_differences_ssim_only(
         _, direct_max, _, _ = cv2.minMaxLoc(direct_diff, mask=common_mask.astype(np.uint8))
         if direct_max > 0:
             direct_u8 = (direct_diff.astype(np.float32) / direct_max * 255).astype(np.uint8)
+            if save_debug:
+                _save_debug("05b_direct_diff.png", direct_u8)
             # 取 max: 任一检测到的差异都保留（OR 逻辑）
             dissim_u8 = np.maximum(dissim_u8, direct_u8)
+
+    if save_debug and use_direct_diff:
+        _save_debug("05c_fused_diff.png", dissim_u8)
 
     # Otsu 自动阈值 — 对差异图做二值化
     _, binary = cv2.threshold(
         dissim_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
     )
     diff_mask = (binary > 0) & common_mask
+    if save_debug:
+        _save_debug("06_otsu_binary.png", binary)
 
     # 闭运算 — 填充差异区域内部小孔洞
     if close_kernel_size >= 3:
@@ -486,6 +496,8 @@ def detect_differences_ssim_only(
             diff_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel,
         )
         diff_mask = closed > 0
+        if save_debug:
+            _save_debug("07_closed.png", closed)
 
     # 连通域 → 提取自由轮廓 → min_area 过滤
     contours, _ = cv2.findContours(

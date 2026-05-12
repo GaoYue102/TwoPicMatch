@@ -37,6 +37,7 @@ class ParamPanel(QDockWidget):
         self.setWidget(scroll)
 
         layout = QVBoxLayout(container)
+        self._ssim_hidable = []  # widgets to hide when SSIM-only is active
 
         # -- Presets --
         from core.params import PRESETS
@@ -131,6 +132,7 @@ class ParamPanel(QDockWidget):
         cb_ssim_only = QCheckBox()
         cb_ssim_only.setChecked(self._params.ssim_only_mode)
         cb_ssim_only.toggled.connect(self._on_param_changed)
+        cb_ssim_only.toggled.connect(self._on_ssim_only_toggled)
         form.addRow("SSIM Only:", cb_ssim_only)
         self._widgets["ssim_only_mode"] = cb_ssim_only
 
@@ -158,28 +160,38 @@ class ParamPanel(QDockWidget):
 
         sl, sp = self._make_float_slider(0.3, 0.99, self._params.ssim_threshold, 2)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("SSIM阈值:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("SSIM阈值:", row)
         self._widgets["ssim_threshold"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_int_slider(5, 200, self._params.edge_threshold_low)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("Canny低:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("Canny低:", row)
         self._widgets["edge_threshold_low"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_int_slider(10, 500, self._params.edge_threshold_high)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("Canny高:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("Canny高:", row)
         self._widgets["edge_threshold_high"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_float_slider(0.01, 0.5, self._params.edge_density_threshold, 3)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("边缘密度:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("边缘密度:", row)
         self._widgets["edge_density_threshold"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_float_slider(1.0, 5.0, self._params.min_color_ratio, 1)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("颜色差异比:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("颜色差异比:", row)
         self._widgets["min_color_ratio"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         bg = QButtonGroup(self)
         radio_and = QRadioButton("AND (严格)")
@@ -191,24 +203,31 @@ class ParamPanel(QDockWidget):
         else:
             radio_or.setChecked(True)
         bg.idToggled.connect(self._on_fusion_changed)
-        form.addRow("融合模式:", self._h_pack(radio_and, radio_or))
+        row = self._h_pack(radio_and, radio_or)
+        form.addRow("融合模式:", row)
         self._widgets["fusion_mode"] = bg
+        self._ssim_hidable.append(row)
 
         cb_cfm = QCheckBox()
         cb_cfm.setChecked(self._params.use_colorfulness_mask)
         cb_cfm.toggled.connect(self._on_param_changed)
         form.addRow("色差比预掩膜:", cb_cfm)
         self._widgets["use_colorfulness_mask"] = cb_cfm
+        self._ssim_hidable.append(cb_cfm)
 
         sl, sp = self._make_int_slider(8, 128, self._params.colorfulness_block_size, step=8)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("色差块大小:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("色差块大小:", row)
         self._widgets["colorfulness_block_size"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_float_slider(1.2, 5.0, self._params.colorfulness_ratio_threshold, 1)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("色差比阈值:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("色差比阈值:", row)
         self._widgets["colorfulness_ratio_threshold"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         layout.addWidget(grp)
 
@@ -218,8 +237,10 @@ class ParamPanel(QDockWidget):
 
         sl, sp = self._make_int_slider(0, 15, self._params.morph_open_kernel_size, step=2)
         sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("开运算核:", self._h_pack(sl, sp))
+        row = self._h_pack(sl, sp)
+        form.addRow("开运算核:", row)
         self._widgets["morph_open_kernel_size"] = (sl, sp)
+        self._ssim_hidable.append(row)
 
         sl, sp = self._make_int_slider(1, 31, self._params.morph_close_kernel_size, step=2)
         sl.valueChanged.connect(self._on_param_changed)
@@ -360,6 +381,10 @@ class ParamPanel(QDockWidget):
             if cb:
                 setattr(self._params, cb_key, cb.isChecked())
 
+    def _on_ssim_only_toggled(self, checked):
+        for w in self._ssim_hidable:
+            w.setVisible(not checked)
+
     def _on_reprocess(self):
         self.reprocess_requested.emit(self._params)
 
@@ -385,3 +410,4 @@ class ParamPanel(QDockWidget):
             elif isinstance(w, tuple) and len(w) == 2:
                 w[1].setValue(val)
         self._building = False
+        self._on_ssim_only_toggled(p.ssim_only_mode)
