@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Debug output
+debug_steps/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code project config
+.claude/
+
+# Root-level temporary test images
+/*.jpg
+/*.jpeg
+/*.png
+
+# Secrets
+.env
