@@ -31,6 +31,7 @@ class PipelineResult:
     diff_mask: Optional[np.ndarray] = None
     ssim_map: Optional[np.ndarray] = None    # per-pixel SSIM similarity (1=identical, 0=dissimilar)
     bboxes: List[Tuple[int, int, int, int]] = None
+    contours: list = None                    # cv2.findContours 格式的自由轮廓列表
     match_viz: Optional[np.ndarray] = None
     stats: dict = None
 
@@ -189,18 +190,20 @@ class PipelineWorker(QThread):
         self.stage_changed.emit("差异检测…")
         self.progress.emit(0.7)
         if self._params.ssim_only_mode:
-            bboxes, diff_mask, ssim_map = detect_differences_ssim_only(
+            contours, diff_mask, ssim_map = detect_differences_ssim_only(
                 ref_for_detection, r.test_warped, r.common_mask,
                 gaussian_blur_sigma=self._params.gaussian_blur_sigma,
                 ssim_window=self._params.ssim_window,
+                close_kernel_size=self._params.morph_close_kernel_size,
                 min_area=self._params.min_area,
                 use_color_ssim=self._params.use_color_ssim,
                 max_detection_side=self._params.max_detection_side,
-                close_kernel_size=self._params.morph_close_kernel_size,
-                dissim_threshold=self._params.dissim_threshold,
-                save_debug=self._params.debug_export,
             )
+            r.contours = contours
+            # 从轮廓派生 bboxes 用于结果列表和导出
+            bboxes = [cv2.boundingRect(c) for c in contours]
         else:
+            contours = None
             bboxes, diff_mask, ssim_map = detect_differences(
                 ref_for_detection, r.test_warped, r.common_mask,
                 gaussian_blur_sigma=self._params.gaussian_blur_sigma,
@@ -223,13 +226,14 @@ class PipelineWorker(QThread):
                 save_debug=self._params.debug_export,
             )
         r.bboxes = bboxes
+        r.contours = contours
         r.diff_mask = diff_mask
         r.ssim_map = ssim_map
         r.stats["num_diffs"] = len(bboxes)
         self.progress.emit(0.95)
 
         if self._params.debug_export:
-            save_final_overlay(r.ref_bgr, r.test_warped, r.bboxes)
+            save_final_overlay(r.ref_bgr, r.test_warped, r.bboxes, r.contours)
 
         # Stage 6 — match viz (reuses cached fm_result)
         r.match_viz = draw_matches_from_result(

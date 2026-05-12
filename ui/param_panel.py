@@ -134,11 +134,6 @@ class ParamPanel(QDockWidget):
         form.addRow("SSIM Only:", cb_ssim_only)
         self._widgets["ssim_only_mode"] = cb_ssim_only
 
-        sl, sp = self._make_int_slider(50, 250, self._params.dissim_threshold, step=5)
-        sl.valueChanged.connect(self._on_param_changed)
-        form.addRow("相异阈值:", self._h_pack(sl, sp))
-        self._widgets["dissim_threshold"] = (sl, sp)
-
         cb_color = QCheckBox()
         cb_color.setChecked(self._params.use_color_ssim)
         cb_color.toggled.connect(self._on_param_changed)
@@ -334,7 +329,7 @@ class ParamPanel(QDockWidget):
             "clahe_tile_size", "border_margin",
             "morph_open_kernel_size", "morph_close_kernel_size", "min_area",
             "max_detection_side", "max_matching_side",
-            "colorfulness_block_size", "dissim_threshold",
+            "colorfulness_block_size",
         ]
         for key in int_keys:
             w = self._widgets.get(key)

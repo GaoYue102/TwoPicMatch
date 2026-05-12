@@ -1,8 +1,9 @@
 from typing import List, Tuple
 
-from PyQt6.QtCore import QRectF
-from PyQt6.QtGui import QColor, QPen
-from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsScene
+import numpy as np
+from PyQt6.QtCore import QRectF, QPointF
+from PyQt6.QtGui import QColor, QPen, QPolygonF
+from PyQt6.QtWidgets import QGraphicsPolygonItem, QGraphicsRectItem, QGraphicsScene
 
 
 _DIFF_COLOR = QColor(255, 60, 60, 200)
@@ -10,11 +11,11 @@ _DIFF_PEN = QPen(_DIFF_COLOR, 3)
 
 
 class ResultOverlay:
-    """Manages difference bounding-box overlay items on graphics scenes."""
+    """Manages difference overlay items (rects or free-form contours) on scenes."""
 
     def __init__(self):
-        self._ref_items: List[QGraphicsRectItem] = []
-        self._test_items: List[QGraphicsRectItem] = []
+        self._ref_items: list = []
+        self._test_items: list = []
 
     def set_bboxes(
         self,
@@ -32,6 +33,28 @@ class ResultOverlay:
             self._ref_items.append(ref_item)
 
             test_item = QGraphicsRectItem(rect)
+            test_item.setPen(_DIFF_PEN)
+            test_scene.addItem(test_item)
+            self._test_items.append(test_item)
+
+    def set_contours(
+        self,
+        contours: List[np.ndarray],
+        ref_scene: QGraphicsScene,
+        test_scene: QGraphicsScene,
+    ):
+        """Draw free-form contours as polygons."""
+        self.clear()
+        for cnt in contours:
+            pts = cnt[:, 0, :]  # (N, 1, 2) → (N, 2)
+            poly = QPolygonF([QPointF(float(x), float(y)) for x, y in pts])
+
+            ref_item = QGraphicsPolygonItem(poly)
+            ref_item.setPen(_DIFF_PEN)
+            ref_scene.addItem(ref_item)
+            self._ref_items.append(ref_item)
+
+            test_item = QGraphicsPolygonItem(poly)
             test_item.setPen(_DIFF_PEN)
             test_scene.addItem(test_item)
             self._test_items.append(test_item)

@@ -406,18 +406,15 @@ def detect_differences_ssim_only(
     *,
     gaussian_blur_sigma: float,
     ssim_window: int,
+    close_kernel_size: int,
     min_area: int,
     use_color_ssim: bool,
     max_detection_side: int = 0,
-    close_kernel_size: int = 5,
-    dissim_threshold: int = 230,
-    save_debug: bool = False,
-) -> Tuple[List[Tuple[int, int, int, int]], np.ndarray, np.ndarray]:
-    """SSIM 热力图 → 固定阈值 → 闭运算 → 连通域 → 面积过滤。
+) -> Tuple[List[np.ndarray], np.ndarray, np.ndarray]:
+    """SSIM-only + Otsu auto-threshold + close + contour extraction.
 
-    管线: 模糊 → SSIM → 相异性图 → 固定阈值分割(dissim_threshold)
-          → 闭运算填洞 → 连通域提取 → min_area筛噪 → 边缘框。
-    返回 (bboxes, mask, ssim_map)。
+    管线: 模糊 → SSIM → Otsu自动阈值 → 闭运算 → 连通域 → 轮廓提取 → min_area
+    返回 (contours, mask, ssim_map)，其中 contours 是 cv2.findContours 格式的列表。
     """
     ref_gray = _gray(ref_bgr)
     test_gray = _gray(test_warped_bgr)
@@ -458,42 +455,35 @@ def detect_differences_ssim_only(
     _test_for_ssim[~common_mask] = _ref_for_ssim[~common_mask]
     ssim_map = _ssim_fn(_ref_for_ssim, _test_for_ssim, ssim_window)
 
-    # 相异性图 (0=相同, 255=完全不同)
-    dissim = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
+    # Otsu 自动阈值 — 对 SSIM 差异图做二值化
+    dissim_u8 = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
+    _, binary = cv2.threshold(
+        dissim_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+    )
+    diff_mask = (binary > 0) & common_mask
 
-    # 固定阈值分割 — 相异性 > dissim_threshold 即视为差异
-    diff_mask = dissim > dissim_threshold
-
-    if save_debug:
-        _save_debug("05a_dissim.png", dissim)
-        _save_debug("05b_thresh.png", (diff_mask.astype(np.uint8) * 255))
-
-    # 限定公共区域
-    diff_mask = diff_mask & common_mask
-
-    # 闭运算 — 填洞连接断裂区域
-    if close_kernel_size >= 1:
+    # 闭运算 — 填充差异区域内部小孔洞
+    if close_kernel_size >= 3:
         kernel = cv2.getStructuringElement(
-            cv2.MORPH_ELLIPSE, (close_kernel_size, close_kernel_size))
-        diff_mask = cv2.morphologyEx(
-            diff_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+            cv2.MORPH_ELLIPSE, (close_kernel_size, close_kernel_size),
+        )
+        closed = cv2.morphologyEx(
+            diff_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel,
+        )
+        diff_mask = closed > 0
 
-    if save_debug:
-        _save_debug("05c_closed.png", diff_mask)
-
-    # 连通域提取 + min_area 过滤
-    diff_mask_bool = diff_mask.astype(bool)
-    bboxes = _extract_bboxes(diff_mask_bool, min_area)
+    # 连通域 → 提取自由轮廓 → min_area 过滤
+    contours, _ = cv2.findContours(
+        diff_mask.astype(np.uint8), cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+    contours = [c for c in contours if cv2.contourArea(c) >= min_area]
 
     # 缩放回原图
     if ds_scale != 1.0:
-        bboxes = [
-            (int(b[0] / ds_scale), int(b[1] / ds_scale),
-             int(b[2] / ds_scale), int(b[3] / ds_scale))
-            for b in bboxes
-        ]
-        diff_mask_bool = cv2.resize(
-            diff_mask_bool.astype(np.uint8), (_orig_w, _orig_h),
+        contours = [(c / ds_scale).astype(np.int32) for c in contours]
+        diff_mask = cv2.resize(
+            diff_mask.astype(np.uint8), (_orig_w, _orig_h),
             interpolation=cv2.INTER_NEAREST,
         ).astype(bool)
         ssim_map = cv2.resize(
@@ -501,4 +491,4 @@ def detect_differences_ssim_only(
             interpolation=cv2.INTER_LINEAR,
         )
 
-    return bboxes, diff_mask_bool, ssim_map
+    return contours, diff_mask, ssim_map

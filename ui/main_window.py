@@ -309,10 +309,12 @@ class MainWindow(QMainWindow):
                 test_disp = r.test_warped
             self._dual_viewer.set_test(_cv2_to_qpixmap(test_disp))
 
-        # re-apply bbox overlays
-        if r.bboxes:
-            ref_scene = self._dual_viewer.ref_canvas.scene
-            test_scene = self._dual_viewer.test_canvas.scene
+        # re-apply overlays — 优先自由轮廓
+        ref_scene = self._dual_viewer.ref_canvas.scene
+        test_scene = self._dual_viewer.test_canvas.scene
+        if r.contours:
+            self._overlay.set_contours(r.contours, ref_scene, test_scene)
+        elif r.bboxes:
             self._overlay.set_bboxes(r.bboxes, ref_scene, test_scene)
 
     # ------------------------------------------------------------------
@@ -330,10 +332,13 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        # draw bounding boxes on the reference image
-        out = self._last_result.ref_bgr.copy()
-        for (x, y, w, h) in self._last_result.bboxes:
-            cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 3)
+        r = self._last_result
+        out = r.ref_bgr.copy()
+        if r.contours:
+            cv2.drawContours(out, r.contours, -1, (0, 0, 255), 3)
+        else:
+            for (x, y, w, h) in r.bboxes:
+                cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
         imwrite_unicode(path, out)
         self._status.showMessage(f"结果已导出: {os.path.basename(path)}")

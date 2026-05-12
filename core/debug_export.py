@@ -70,25 +70,39 @@ def save_final_overlay(
     ref: np.ndarray,
     test_warped: np.ndarray,
     bboxes: list,
+    contours: list = None,
 ):
     """Step 10 — final detection overlay on ref and warped test."""
     h, w = ref.shape[:2]
     result = _hstack_ensure_same_height(ref, test_warped)
+    num = len(bboxes)
 
-    for i, (bx, by, bw, bh) in enumerate(bboxes):
-        color = (0, 255, 255) if i == 0 else (0, 0, 255)
-        cv2.rectangle(result, (bx, by), (bx + bw, by + bh), color, 4)
-        cv2.putText(result, f"D{i}", (bx + 5, by - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
-        if test_warped.shape[0] >= by + bh:
-            cv2.rectangle(result, (bx + w, by), (bx + bw + w, by + bh), color, 4)
-            cv2.putText(result, f"D{i}", (bx + w + 5, by - 5),
+    if contours:
+        for i, cnt in enumerate(contours):
+            color = (0, 255, 255) if i == 0 else (0, 0, 255)
+            cv2.drawContours(result, [cnt], -1, color, 4)
+            x, y = cnt[:, 0, :].min(axis=0)
+            cv2.putText(result, f"D{i}", (int(x) + 5, int(y) - 5),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+            offset = np.array([w, 0], dtype=np.int32)
+            cv2.drawContours(result, [cnt + offset], -1, color, 4)
+            cv2.putText(result, f"D{i}", (int(x) + w + 5, int(y) - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+    else:
+        for i, (bx, by, bw, bh) in enumerate(bboxes):
+            color = (0, 255, 255) if i == 0 else (0, 0, 255)
+            cv2.rectangle(result, (bx, by), (bx + bw, by + bh), color, 4)
+            cv2.putText(result, f"D{i}", (bx + 5, by - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+            if test_warped.shape[0] >= by + bh:
+                cv2.rectangle(result, (bx + w, by), (bx + bw + w, by + bh), color, 4)
+                cv2.putText(result, f"D{i}", (bx + w + 5, by - 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
 
     # Legend bar
     band_h = 60
     legend = np.zeros((band_h, result.shape[1], 3), dtype=np.uint8)
-    cv2.putText(legend, f"Detections: {len(bboxes)}", (20, 40),
+    cv2.putText(legend, f"Detections: {num}", (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
     result = np.vstack([legend, result])
 
