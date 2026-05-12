@@ -205,7 +205,6 @@ class PipelineWorker(QThread):
             # 从轮廓派生 bboxes 用于结果列表和导出
             bboxes = [cv2.boundingRect(c) for c in contours]
         else:
-            contours = None
             bboxes, diff_mask, ssim_map = detect_differences(
                 ref_for_detection, r.test_warped, r.common_mask,
                 gaussian_blur_sigma=self._params.gaussian_blur_sigma,
@@ -226,6 +225,10 @@ class PipelineWorker(QThread):
                 colorfulness_block_size=self._params.colorfulness_block_size,
                 colorfulness_ratio_threshold=self._params.colorfulness_ratio_threshold,
                 save_debug=self._params.debug_export,
+            )
+            contours, _ = cv2.findContours(
+                diff_mask.astype(np.uint8), cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
             )
         r.bboxes = bboxes
         r.contours = contours

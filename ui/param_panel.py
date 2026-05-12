@@ -338,7 +338,17 @@ class ParamPanel(QDockWidget):
         if self._building:
             return
         from core.params import params_with_preset, DetectionParams
+        # 保持当前的可视化/调试参数，不被预设覆盖
+        keep = {
+            "ssim_only_mode": self._params.ssim_only_mode,
+            "use_direct_diff": self._params.use_direct_diff,
+            "show_heatmap": self._params.show_heatmap,
+            "heatmap_opacity": self._params.heatmap_opacity,
+            "debug_export": self._params.debug_export,
+        }
         self._params = params_with_preset(DetectionParams(), name)
+        for k, v in keep.items():
+            setattr(self._params, k, v)
         self.set_params(self._params)
         self.reprocess_requested.emit(self._params)
 
