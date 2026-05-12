@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import QGraphicsPolygonItem, QGraphicsRectItem, QGraphicsSc
 
 
 _DIFF_COLOR = QColor(255, 60, 60, 200)
-_DIFF_PEN = QPen(_DIFF_COLOR, 3)
 
 
 class ResultOverlay:
@@ -22,18 +21,20 @@ class ResultOverlay:
         bboxes: List[Tuple[int, int, int, int]],
         ref_scene: QGraphicsScene,
         test_scene: QGraphicsScene,
+        img_width: int = 1000,
     ):
         self.clear()
+        pen = QPen(_DIFF_COLOR, max(1, int(img_width * 0.004)))
         for (x, y, w, h) in bboxes:
             rect = QRectF(float(x), float(y), float(w), float(h))
 
             ref_item = QGraphicsRectItem(rect)
-            ref_item.setPen(_DIFF_PEN)
+            ref_item.setPen(pen)
             ref_scene.addItem(ref_item)
             self._ref_items.append(ref_item)
 
             test_item = QGraphicsRectItem(rect)
-            test_item.setPen(_DIFF_PEN)
+            test_item.setPen(pen)
             test_scene.addItem(test_item)
             self._test_items.append(test_item)
 
@@ -42,20 +43,26 @@ class ResultOverlay:
         contours: List[np.ndarray],
         ref_scene: QGraphicsScene,
         test_scene: QGraphicsScene,
+        img_width: int = 1000,
     ):
-        """Draw free-form contours as polygons."""
+        """Draw free-form contours as polygons.
+
+        img_width is used to auto-size the pen: max(1, int(img_width * 0.004)).
+        """
         self.clear()
+        pen_width = max(1, int(img_width * 0.004))
+        pen = QPen(_DIFF_COLOR, pen_width)
         for cnt in contours:
             pts = cnt[:, 0, :]  # (N, 1, 2) → (N, 2)
             poly = QPolygonF([QPointF(float(x), float(y)) for x, y in pts])
 
             ref_item = QGraphicsPolygonItem(poly)
-            ref_item.setPen(_DIFF_PEN)
+            ref_item.setPen(pen)
             ref_scene.addItem(ref_item)
             self._ref_items.append(ref_item)
 
             test_item = QGraphicsPolygonItem(poly)
-            test_item.setPen(_DIFF_PEN)
+            test_item.setPen(pen)
             test_scene.addItem(test_item)
             self._test_items.append(test_item)
 

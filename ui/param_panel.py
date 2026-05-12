@@ -163,35 +163,35 @@ class ParamPanel(QDockWidget):
         row = self._h_pack(sl, sp)
         form.addRow("SSIM阈值:", row)
         self._widgets["ssim_threshold"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_int_slider(5, 200, self._params.edge_threshold_low)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("Canny低:", row)
         self._widgets["edge_threshold_low"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_int_slider(10, 500, self._params.edge_threshold_high)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("Canny高:", row)
         self._widgets["edge_threshold_high"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_float_slider(0.01, 0.5, self._params.edge_density_threshold, 3)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("边缘密度:", row)
         self._widgets["edge_density_threshold"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_float_slider(1.0, 5.0, self._params.min_color_ratio, 1)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("颜色差异比:", row)
         self._widgets["min_color_ratio"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         bg = QButtonGroup(self)
         radio_and = QRadioButton("AND (严格)")
@@ -206,28 +206,28 @@ class ParamPanel(QDockWidget):
         row = self._h_pack(radio_and, radio_or)
         form.addRow("融合模式:", row)
         self._widgets["fusion_mode"] = bg
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         cb_cfm = QCheckBox()
         cb_cfm.setChecked(self._params.use_colorfulness_mask)
         cb_cfm.toggled.connect(self._on_param_changed)
         form.addRow("色差比预掩膜:", cb_cfm)
         self._widgets["use_colorfulness_mask"] = cb_cfm
-        self._ssim_hidable.append(cb_cfm)
+        self._ssim_hidable.append((form.labelForField(cb_cfm), cb_cfm))
 
         sl, sp = self._make_int_slider(8, 128, self._params.colorfulness_block_size, step=8)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("色差块大小:", row)
         self._widgets["colorfulness_block_size"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_float_slider(1.2, 5.0, self._params.colorfulness_ratio_threshold, 1)
         sl.valueChanged.connect(self._on_param_changed)
         row = self._h_pack(sl, sp)
         form.addRow("色差比阈值:", row)
         self._widgets["colorfulness_ratio_threshold"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         layout.addWidget(grp)
 
@@ -240,7 +240,7 @@ class ParamPanel(QDockWidget):
         row = self._h_pack(sl, sp)
         form.addRow("开运算核:", row)
         self._widgets["morph_open_kernel_size"] = (sl, sp)
-        self._ssim_hidable.append(row)
+        self._ssim_hidable.append((form.labelForField(row), row))
 
         sl, sp = self._make_int_slider(1, 31, self._params.morph_close_kernel_size, step=2)
         sl.valueChanged.connect(self._on_param_changed)
@@ -382,8 +382,10 @@ class ParamPanel(QDockWidget):
                 setattr(self._params, cb_key, cb.isChecked())
 
     def _on_ssim_only_toggled(self, checked):
-        for w in self._ssim_hidable:
-            w.setVisible(not checked)
+        for label, field in self._ssim_hidable:
+            if label is not None:
+                label.setVisible(not checked)
+            field.setVisible(not checked)
 
     def _on_reprocess(self):
         self.reprocess_requested.emit(self._params)

@@ -74,30 +74,31 @@ def save_final_overlay(
 ):
     """Step 10 — final detection overlay on ref and warped test."""
     h, w = ref.shape[:2]
+    lw = max(1, int(w * 0.004))
     result = _hstack_ensure_same_height(ref, test_warped)
     num = len(bboxes)
 
     if contours:
         for i, cnt in enumerate(contours):
             color = (0, 255, 255) if i == 0 else (0, 0, 255)
-            cv2.drawContours(result, [cnt], -1, color, 4)
+            cv2.drawContours(result, [cnt], -1, color, lw)
             x, y = cnt[:, 0, :].min(axis=0)
             cv2.putText(result, f"D{i}", (int(x) + 5, int(y) - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, lw)
             offset = np.array([w, 0], dtype=np.int32)
-            cv2.drawContours(result, [cnt + offset], -1, color, 4)
+            cv2.drawContours(result, [cnt + offset], -1, color, lw)
             cv2.putText(result, f"D{i}", (int(x) + w + 5, int(y) - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, lw)
     else:
         for i, (bx, by, bw, bh) in enumerate(bboxes):
             color = (0, 255, 255) if i == 0 else (0, 0, 255)
-            cv2.rectangle(result, (bx, by), (bx + bw, by + bh), color, 4)
+            cv2.rectangle(result, (bx, by), (bx + bw, by + bh), color, lw)
             cv2.putText(result, f"D{i}", (bx + 5, by - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, lw)
             if test_warped.shape[0] >= by + bh:
-                cv2.rectangle(result, (bx + w, by), (bx + bw + w, by + bh), color, 4)
+                cv2.rectangle(result, (bx + w, by), (bx + bw + w, by + bh), color, lw)
                 cv2.putText(result, f"D{i}", (bx + w + 5, by - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 3)
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, lw)
 
     # Legend bar
     band_h = 60

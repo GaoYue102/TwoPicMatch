@@ -313,9 +313,11 @@ class MainWindow(QMainWindow):
         ref_scene = self._dual_viewer.ref_canvas.scene
         test_scene = self._dual_viewer.test_canvas.scene
         if r.contours:
-            self._overlay.set_contours(r.contours, ref_scene, test_scene)
+            w = r.ref_bgr.shape[1] if r.ref_bgr is not None else ref_disp.shape[1]
+            self._overlay.set_contours(r.contours, ref_scene, test_scene, img_width=w)
         elif r.bboxes:
-            self._overlay.set_bboxes(r.bboxes, ref_scene, test_scene)
+            w2 = r.ref_bgr.shape[1] if r.ref_bgr is not None else ref_disp.shape[1]
+            self._overlay.set_bboxes(r.bboxes, ref_scene, test_scene, img_width=w2)
 
     # ------------------------------------------------------------------
     # export
@@ -333,12 +335,13 @@ class MainWindow(QMainWindow):
             return
 
         r = self._last_result
+        lw = max(1, int(r.ref_bgr.shape[1] * 0.004))
         out = r.ref_bgr.copy()
         if r.contours:
-            cv2.drawContours(out, r.contours, -1, (0, 0, 255), 3)
+            cv2.drawContours(out, r.contours, -1, (0, 0, 255), lw)
         else:
             for (x, y, w, h) in r.bboxes:
-                cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), lw)
 
         imwrite_unicode(path, out)
         self._status.showMessage(f"结果已导出: {os.path.basename(path)}")
