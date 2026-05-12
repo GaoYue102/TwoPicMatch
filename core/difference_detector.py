@@ -409,11 +409,13 @@ def detect_differences_ssim_only(
     close_kernel_size: int,
     min_area: int,
     use_color_ssim: bool,
+    use_direct_diff: bool = False,
     max_detection_side: int = 0,
 ) -> Tuple[List[np.ndarray], np.ndarray, np.ndarray]:
     """SSIM-only + Otsu auto-threshold + close + contour extraction.
 
-    管线: 模糊 → SSIM → Otsu自动阈值 → 闭运算 → 连通域 → 轮廓提取 → min_area
+    管线: 模糊 → SSIM → [直接差值融合] → Otsu → 闭运算 → 连通域 → 轮廓 → min_area
+    当 use_direct_diff=True, 将 SSIM 差异图与直接像素差取 max 后做 Otsu。
     返回 (contours, mask, ssim_map)，其中 contours 是 cv2.findContours 格式的列表。
     """
     ref_gray = _gray(ref_bgr)
@@ -455,8 +457,21 @@ def detect_differences_ssim_only(
     _test_for_ssim[~common_mask] = _ref_for_ssim[~common_mask]
     ssim_map = _ssim_fn(_ref_for_ssim, _test_for_ssim, ssim_window)
 
-    # Otsu 自动阈值 — 对 SSIM 差异图做二值化
+    # SSIM 差异图 → [0, 255]
     dissim_u8 = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
+
+    if use_direct_diff:
+        # 直接像素差: 对灰度图取绝对差，弥补 SSIM 在均匀区域的弱响应
+        direct_diff = cv2.absdiff(ref_gray, test_gray)
+        direct_diff[~common_mask] = 0
+        # 归一化到 [0, 255]，与 SSIM 差异图对齐尺度
+        _, direct_max, _, _ = cv2.minMaxLoc(direct_diff, mask=common_mask.astype(np.uint8))
+        if direct_max > 0:
+            direct_u8 = (direct_diff.astype(np.float32) / direct_max * 255).astype(np.uint8)
+            # 取 max: 任一检测到的差异都保留（OR 逻辑）
+            dissim_u8 = np.maximum(dissim_u8, direct_u8)
+
+    # Otsu 自动阈值 — 对差异图做二值化
     _, binary = cv2.threshold(
         dissim_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
     )

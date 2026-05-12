@@ -134,6 +134,12 @@ class ParamPanel(QDockWidget):
         form.addRow("SSIM Only:", cb_ssim_only)
         self._widgets["ssim_only_mode"] = cb_ssim_only
 
+        cb_dd = QCheckBox()
+        cb_dd.setChecked(self._params.use_direct_diff)
+        cb_dd.toggled.connect(self._on_param_changed)
+        form.addRow("直接差值融合:", cb_dd)
+        self._widgets["use_direct_diff"] = cb_dd
+
         cb_color = QCheckBox()
         cb_color.setChecked(self._params.use_color_ssim)
         cb_color.toggled.connect(self._on_param_changed)
@@ -348,7 +354,8 @@ class ParamPanel(QDockWidget):
                 setattr(self._params, key, w[1].value())
         # checkboxes
         for cb_key in ["do_histogram_match", "use_color_ssim", "use_colorfulness_mask",
-                       "show_heatmap", "ssim_only_mode", "debug_export"]:
+                       "show_heatmap", "ssim_only_mode", "use_direct_diff",
+                       "debug_export"]:
             cb = self._widgets.get(cb_key)
             if cb:
                 setattr(self._params, cb_key, cb.isChecked())

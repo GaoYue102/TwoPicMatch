@@ -197,6 +197,7 @@ class PipelineWorker(QThread):
                 close_kernel_size=self._params.morph_close_kernel_size,
                 min_area=self._params.min_area,
                 use_color_ssim=self._params.use_color_ssim,
+                use_direct_diff=self._params.use_direct_diff,
                 max_detection_side=self._params.max_detection_side,
             )
             r.contours = contours
