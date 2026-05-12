@@ -46,6 +46,7 @@ class DetectionParams:
     show_heatmap: bool = False                   # overlay SSIM dissimilarity heatmap on images
     heatmap_opacity: float = 0.7                 # heatmap overlay opacity (0.1–1.0)
     ssim_only_mode: bool = False                 # use SSIM-only detection (skip edge/fusion/morph/color)
+    dissim_threshold: int = 230                  # SSIM dissimilarity threshold for ssim_only_mode (0-255)
 
     # --- debug ---
     debug_export: bool = False                   # save intermediate step images to debug_steps/
@@ -82,6 +83,7 @@ class DetectionParams:
             "show_heatmap": self.show_heatmap,
             "heatmap_opacity": self.heatmap_opacity,
             "ssim_only_mode": self.ssim_only_mode,
+            "dissim_threshold": self.dissim_threshold,
             "debug_export": self.debug_export,
         }
 

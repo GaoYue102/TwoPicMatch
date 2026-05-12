@@ -410,11 +410,12 @@ def detect_differences_ssim_only(
     use_color_ssim: bool,
     max_detection_side: int = 0,
     close_kernel_size: int = 5,
+    dissim_threshold: int = 230,
     save_debug: bool = False,
 ) -> Tuple[List[Tuple[int, int, int, int]], np.ndarray, np.ndarray]:
-    """SSIM 热力图 → Otsu 自动阈值 → 闭运算 → 连通域 → 面积过滤。
+    """SSIM 热力图 → 固定阈值 → 闭运算 → 连通域 → 面积过滤。
 
-    管线: 模糊 → SSIM → 相异性图 → Otsu阈值分割
+    管线: 模糊 → SSIM → 相异性图 → 固定阈值分割(dissim_threshold)
           → 闭运算填洞 → 连通域提取 → min_area筛噪 → 边缘框。
     返回 (bboxes, mask, ssim_map)。
     """
@@ -460,16 +461,15 @@ def detect_differences_ssim_only(
     # 相异性图 (0=相同, 255=完全不同)
     dissim = ((1.0 - np.clip(ssim_map, 0, 1)) * 255).astype(np.uint8)
 
-    # Otsu 自动阈值分割
-    otsu_thresh, diff_mask = cv2.threshold(
-        dissim, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 固定阈值分割 — 相异性 > dissim_threshold 即视为差异
+    diff_mask = dissim > dissim_threshold
 
     if save_debug:
         _save_debug("05a_dissim.png", dissim)
-        _save_debug("05b_otsu_thresh.png", diff_mask)
+        _save_debug("05b_thresh.png", (diff_mask.astype(np.uint8) * 255))
 
     # 限定公共区域
-    diff_mask = (diff_mask > 0) & common_mask
+    diff_mask = diff_mask & common_mask
 
     # 闭运算 — 填洞连接断裂区域
     if close_kernel_size >= 1:

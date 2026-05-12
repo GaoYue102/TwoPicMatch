@@ -197,6 +197,7 @@ class PipelineWorker(QThread):
                 use_color_ssim=self._params.use_color_ssim,
                 max_detection_side=self._params.max_detection_side,
                 close_kernel_size=self._params.morph_close_kernel_size,
+                dissim_threshold=self._params.dissim_threshold,
                 save_debug=self._params.debug_export,
             )
         else:
